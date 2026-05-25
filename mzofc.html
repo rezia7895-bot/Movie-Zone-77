@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Movie Zone 77</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Roboto', sans-serif; background-color: #141414; color: #fff; -webkit-tap-highlight-color: transparent; }
+        .netflix-red { color: #E50914; }
+        .bg-netflix-red { background-color: #E50914; }
+        .bg-netflix-red:hover { background-color: #b20710; }
+        
+        /* Custom Scrollbar for Desktop */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #141414; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #E50914; }
+
+        /* Hide Scrollbar for Mobile Horizontal Scrolling */
+        .hide-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none; /* Chrome, Safari and Opera */
+        }
+        
+        /* Video Container Aspect Ratio */
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 */
+            height: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        .video-wrapper img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #E50914;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Marquee Animation */
+        .marquee-container {
+            overflow: hidden;
+            width: 100%;
+            white-space: nowrap;
+        }
+        .marquee-content {
+            display: inline-block;
+            /* Changed animation speed from 25s to 90s to make it much slower and readable */
+            animation: marquee 90s linear infinite; 
+            padding-left: 100%; 
+        }
+        @keyframes marquee {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-100%, 0); }
+        }
+
+        /* Line Clamp for long titles */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;  
+            overflow: hidden;
+        }
+
+        /* Password Modal Styling */
+        #passModal input {
+            background: #222;
+            border: 1px solid #444;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            width: 100%;
+            margin-bottom: 15px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Mobile Optimized Navigation -->
+    <nav class="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-gray-800 px-3 py-3 w-full shadow-lg">
+        <div class="max-w-7xl mx-auto">
+            
+            <!-- Top Row: Logo & Settings -->
+            <div class="flex justify-between items-center mb-3">
+                <!-- Logo -->
+                <div id="navLogo" class="flex items-center gap-2 cursor-pointer" onclick="app.showHome()">
+                    <i class="fas fa-film text-2xl sm:text-3xl netflix-red"></i>
+                    <h1 class="text-lg sm:text-2xl font-bold tracking-wider text-red-600">MOVIE ZONE 77</h1>
+                </div>
+
+                <!-- Settings Button -->
+                <button id="navSettingsBtn" onclick="app.toggleSettingsModal(true)" 
+                    class="p-2 text-gray-300 hover:text-white transition-all focus:outline-none">
+                    <i class="fas fa-cog text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Middle Row: Search Bar -->
+            <div id="navSearchInput" class="w-full relative mb-3">
+                <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="searchInput" placeholder="Search videos..." 
+                    class="w-full bg-gray-800 text-white border border-gray-700 rounded-full py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:border-red-600 transition-colors shadow-inner">
+            </div>
+            
+            <!-- Bottom Row: Category Filter Buttons (Horizontal Scroll on Mobile) -->
+            <div id="categoryFilters" class="w-full flex space-x-2 overflow-x-auto hide-scrollbar pb-1 snap-x">
+                <button onclick="app.filterByCategory('All')" data-category="All" class="filter-btn shrink-0 snap-start px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-full bg-red-600 hover:bg-red-700 transition-colors shadow-md">All</button>
+                <!-- Categories will be injected here by JS -->
+            </div>
+
+        </div>
+    </nav>
+
+    <!-- Text Slider Banner -->
+    <div id="textSlider" class="bg-yellow-800/40 border-y border-yellow-700/60 py-1.5 px-2 text-xs sm:text-sm text-yellow-300 shadow-md w-full hidden">
+        <div class="marquee-container">
+            <div id="marqueeText" class="marquee-content font-medium uppercase tracking-wide">
+                <!-- Text injected here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <main class="flex-grow p-3 sm:p-6 w-full max-w-7xl mx-auto relative">
+        
+        <!-- Loading State -->
+        <div id="loader" class="loader"></div>
+
+        <!-- Video Grid (Mobile: 2 columns, Tablet: 3, Desktop: 4) -->
+        <div id="videoGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+            <!-- Videos injected here -->
+        </div>
+
+        <!-- No Results Message -->
+        <div id="noResults" class="hidden text-center text-gray-500 mt-16 px-4">
+            <i class="fas fa-video-slash text-5xl sm:text-6xl mb-4 text-gray-600"></i>
+            <p class="text-base sm:text-xl">No videos found matching your search or filter.</p>
+        </div>
+    </main>
+    
+    <!-- Settings Modal (Mobile Centered) -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/95 flex items-center justify-center hidden z-[100] px-4">
+        <div class="bg-gray-900 p-6 sm:p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-gray-700 relative transform transition-all">
+            <button onclick="app.toggleSettingsModal(false)" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h2 class="text-xl sm:text-2xl font-bold mb-6 text-center text-white"><i class="fas fa-cog text-red-600 mr-2"></i> Settings</h2>
+            
+            <div class="flex flex-col justify-between items-center bg-gray-800 p-5 rounded-xl shadow-inner border border-gray-700 gap-4">
+                <label for="adultToggle" class="text-white text-base sm:text-lg font-medium text-center">MZ77 PRO</label>
+                <button id="adultToggleButton" onclick="app.verifyPassword()" class="px-6 py-2.5 text-sm font-bold rounded-full w-32 shadow-lg transition-colors focus:outline-none">
+                    Show Off
+                </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-4 text-center px-2">Turn on to unlock restricted pro content features.</p>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passModal" class="fixed inset-0 bg-black/90 flex items-center justify-center hidden z-[110] px-4">
+        <div class="bg-gray-900 p-6 rounded-2xl border border-gray-700 w-full max-w-[280px] text-center">
+            <h3 class="text-lg font-bold mb-4">Enter Password</h3>
+            <input type="password" id="passInput" placeholder="••••••••">
+            <div class="flex gap-2">
+                <button onclick="document.getElementById('passModal').classList.add('hidden')" class="flex-1 py-2 bg-gray-700 rounded-lg">Cancel</button>
+                <button onclick="app.checkPass()" class="flex-1 py-2 bg-red-600 rounded-lg font-bold">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="uploadToast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-4 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-3 w-[90%] max-w-xs hidden z-[60] upload-toast">
+        <div class="flex justify-between items-center mb-1">
+            <h4 class="font-bold text-xs sm:text-sm text-white flex items-center"><i class="fas fa-info-circle text-blue-500 mr-2 text-base"></i> <span id="toastTitle">Notification</span></h4>
+        </div>
+        <div class="flex justify-between text-[10px] text-gray-400 ml-6">
+            <span id="toastSpeed"></span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-black py-6 sm:py-8 text-center text-gray-600 border-t border-gray-800 text-xs sm:text-sm mt-auto">
+        <p>© 2026 Movie Zone 77. All rights reserved.</p>
+    </footer>
+
+    <!-- Firebase Logic & App Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"; 
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDzRwfs4VPpeoFCbzeEjFgrrwif7_-dbr0",
+            authDomain: "dfk-ai.firebaseapp.com",
+            databaseURL: "https://dfk-ai-default-rtdb.firebaseio.com",
+            projectId: "dfk-ai",
+            storageBucket: "dfk-ai.firebasestorage.app",
+            messagingSenderId: "728685185869",
+            appId: "1:728685185869:web:953ad738663e5a05c44504"
+        };
+
+        const firebaseApp = initializeApp(firebaseConfig);
+        const db = getDatabase(firebaseApp);
+
+        let allVideos = [];
+        let allCategories = []; 
+        let currentCategoryFilter = 'All'; 
+        let showAdultContent = false; 
+
+        const App = {
+            init: () => {
+                // Initial Load - Always start with Adult OFF for security on app launch
+                showAdultContent = false; 
+
+                const loader = document.getElementById('loader');
+                if (loader) loader.style.display = 'block';
+
+                // Fetch Categories
+                onValue(ref(db, 'categories'), (snapshot) => {
+                    const data = snapshot.val();
+                    allCategories = [];
+                    if (data) {
+                        Object.keys(data).forEach(key => {
+                            allCategories.push({ id: key, name: data[key].name });
+                        });
+                    }
+                    App.renderCategoryButtons();
+                });
+
+                // Fetch Videos
+                onValue(ref(db, 'videos'), (snapshot) => {
+                    if (loader) loader.style.display = 'none';
+                    const data = snapshot.val();
+                    allVideos = [];
+                    if (data) {
+                        Object.keys(data).forEach(key => {
+                            const videoData = { id: key, ...data[key] };
+                            if (!videoData.category) videoData.category = 'Movies'; 
+                            allVideos.push(videoData);
+                        });
+                        allVideos.sort((a, b) => b.timestamp - a.timestamp);
+                    }
+                    
+                    App.applyAdultSetting(false);
+                    App.renderVideos(); 
+                }, (error) => {
+                    console.error("Data fetch error:", error);
+                    if (loader) loader.style.display = 'none';
+                });
+
+                // Fetch Slider Text
+                onValue(ref(db, 'slider/text'), (snapshot) => {
+                    const text = snapshot.val();
+                    App.renderSliderText(text);
+                });
+
+                document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
+                    const term = e.target.value.toLowerCase();
+                    const filtered = allVideos.filter(v => v.title.toLowerCase().includes(term));
+                    App.renderVideos(filtered, true);
+                });
+                
+                // SYSTEM: Automatic turn off when app is hidden or closed
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'hidden') {
+                        showAdultContent = false;
+                        App.applyAdultSetting(true);
+                    }
+                });
+
+                App.applyAdultSetting(false);
+            },
+            
+            // Password System Logic
+            verifyPassword: () => {
+                if(showAdultContent) {
+                    // If already on, just turn off
+                    App.toggleAdultContent();
+                } else {
+                    // Show password input
+                    document.getElementById('passModal').classList.remove('hidden');
+                    document.getElementById('passInput').value = '';
+                    document.getElementById('passInput').focus();
+                }
+            },
+
+            checkPass: () => {
+                const pass = document.getElementById('passInput').value;
+                if(pass === "MZ77MAX") {
+                    document.getElementById('passModal').classList.add('hidden');
+                    App.toggleAdultContent();
+                } else {
+                    App.showTempToast("Access Denied", "Incorrect Password", "error");
+                    document.getElementById('passInput').value = '';
+                }
+            },
+
+            // --- Slider UI ---
+            renderSliderText: (text) => {
+                const container = document.getElementById('textSlider');
+                const content = document.getElementById('marqueeText');
+                if (container && content) {
+                    if (text && text.trim()) {
+                        container.classList.remove('hidden');
+                        const repeatedText = (text.trim() + '  ✦  ');
+                        content.textContent = repeatedText.repeat(15);
+                    } else {
+                        container.classList.add('hidden');
+                        content.textContent = '';
+                    }
+                }
+            },
+
+            // --- Category UI ---
+            renderCategoryButtons: () => {
+                const container = document.getElementById('categoryFilters');
+                container.innerHTML = `<button onclick="app.filterByCategory('All')" data-category="All" class="filter-btn shrink-0 snap-start px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-full bg-red-600 hover:bg-red-700 transition-colors shadow-md">All</button>`;
+                
+                allCategories.forEach(cat => {
+                    const btn = document.createElement('button');
+                    btn.onclick = () => App.filterByCategory(cat.name);
+                    btn.setAttribute('data-category', cat.name);
+                    let classes = "filter-btn shrink-0 snap-start px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-full bg-gray-800 hover:bg-gray-700 transition-colors border border-gray-700 shadow-sm";
+                    
+                    if (cat.name === 'Adult' && !showAdultContent) classes += " hidden";
+                    
+                    if (cat.name === 'Adult') btn.textContent = 'Adult 🔞';
+                    else btn.textContent = cat.name;
+                    
+                    btn.className = classes;
+                    container.appendChild(btn);
+                });
+                App.updateFilterButtonUi(currentCategoryFilter);
+            },
+
+            // --- Settings Logic ---
+            applyAdultSetting: (shouldRender = true) => {
+                const adultFilterButton = document.querySelector('[data-category="Adult"]');
+                const adultToggleButton = document.getElementById('adultToggleButton');
+
+                if (adultFilterButton) {
+                    if (showAdultContent) adultFilterButton.classList.remove('hidden');
+                    else adultFilterButton.classList.add('hidden');
+                }
+
+                if (adultToggleButton) {
+                    if (showAdultContent) {
+                        adultToggleButton.textContent = "Show On";
+                        adultToggleButton.classList.remove('bg-gray-600', 'text-gray-300');
+                        adultToggleButton.classList.add('bg-green-600', 'text-white');
+                    } else {
+                        adultToggleButton.textContent = "Show Off";
+                        adultToggleButton.classList.remove('bg-green-600', 'text-white');
+                        adultToggleButton.classList.add('bg-gray-600', 'text-gray-300');
+                    }
+                }
+                
+                // Re-render categories to show/hide the Adult tag button
+                App.renderCategoryButtons();
+
+                if (currentCategoryFilter === 'Adult' && !showAdultContent) {
+                    App.filterByCategory('All');
+                } else if (shouldRender) {
+                    App.renderVideos();
+                }
+            },
+            
+            toggleAdultContent: () => {
+                showAdultContent = !showAdultContent;
+                App.applyAdultSetting(true); 
+                App.toggleSettingsModal(false);
+                App.showTempToast("MZ77 PRO", `Content Mode: ${showAdultContent ? 'UNLOCKED' : 'LOCKED'}`, showAdultContent ? 'success' : 'info');
+            },
+
+            toggleSettingsModal: (show) => {
+                const modal = document.getElementById('settingsModal');
+                if (show === false || show === true) {
+                     if (show) modal.classList.remove('hidden'); else modal.classList.add('hidden');
+                } else {
+                    modal.classList.toggle('hidden');
+                }
+            },
+            
+            filterByCategory: (category) => {
+                currentCategoryFilter = category;
+                App.updateFilterButtonUi(category);
+                const searchInput = document.getElementById('searchInput');
+                if(searchInput) searchInput.value = '';
+                App.renderVideos();
+            },
+
+            updateFilterButtonUi: (activeCategory) => {
+                const buttons = document.querySelectorAll('.filter-btn');
+                buttons.forEach(btn => {
+                    const btnCategory = btn.getAttribute('data-category');
+                    btn.classList.remove('bg-red-600', 'hover:bg-red-700', 'border-red-600');
+                    btn.classList.add('bg-gray-800', 'hover:bg-gray-700', 'border-gray-700');
+                    if (btnCategory === activeCategory) {
+                        btn.classList.remove('bg-gray-800', 'hover:bg-gray-700', 'border-gray-700');
+                        btn.classList.add('bg-red-600', 'hover:bg-red-700', 'border-red-600');
+                    }
+                });
+            },
+
+            renderVideos: (videosToRender = allVideos, isSearchActive = false) => {
+                const grid = document.getElementById('videoGrid');
+                const noResults = document.getElementById('noResults');
+                if (!grid || !noResults) return;
+
+                let finalVideos = videosToRender;
+                
+                if (!isSearchActive && currentCategoryFilter !== 'All') {
+                    finalVideos = allVideos.filter(v => v.category === currentCategoryFilter);
+                }
+
+                if (!showAdultContent) {
+                    finalVideos = finalVideos.filter(v => v.category !== 'Adult');
+                }
+
+                grid.innerHTML = '';
+
+                if (finalVideos.length === 0) {
+                    noResults.classList.remove('hidden');
+                    return;
+                } else {
+                    noResults.classList.add('hidden');
+                }
+
+                finalVideos.forEach(video => {
+                    const dateObj = new Date(video.timestamp);
+                    const date = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear().toString().substr(-2)}`;
+                    
+                    let categoryLabel = video.category;
+                    if (categoryLabel === 'Natok') categoryLabel = 'Drama';
+                    else if (categoryLabel === 'Song') categoryLabel = 'Music';
+                    else if (categoryLabel === 'Adult') categoryLabel = 'Adult 🔞';
+                    
+                    const card = document.createElement('a');
+                    card.href = video.url;
+                    card.target = "_blank";
+                    card.className = 'bg-gray-900 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-transform duration-300 group border border-gray-800 flex flex-col cursor-pointer';
+                    const thumbnailUrl = video.thumbnailUrl || 'https://placehold.co/1600x900/1e1e1e/888888?text=NO+THUMBNAIL';
+                    
+                    card.innerHTML = `
+                        <div class="video-wrapper">
+                            <img src="${thumbnailUrl}" alt="${video.title} thumbnail" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/1600x900/1e1e1e/888888?text=Load+Error';" class="group-hover:opacity-75 transition-opacity">
+                            <div class="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i class="fas fa-play text-2xl sm:text-4xl text-white netflix-red p-3 sm:p-4 rounded-full bg-black/60 shadow-lg backdrop-blur-sm"></i>
+                            </div>
+                        </div>
+                        <div class="p-2.5 sm:p-4 flex-grow flex flex-col justify-between">
+                            <h3 class="text-xs sm:text-base font-bold text-white mb-2 line-clamp-2 leading-tight" title="${video.title}">${video.title}</h3>
+                            <div class="flex flex-row justify-between items-center text-gray-400 mt-auto">
+                                <span class="text-[10px] sm:text-xs"><i class="far fa-clock mr-1"></i>${date}</span>
+                                <span class="px-1.5 py-0.5 text-[9px] sm:text-xs font-bold rounded ${video.category === 'Adult' ? 'bg-red-900/50 text-red-400 border border-red-800' : 'bg-gray-800 text-gray-300 border border-gray-700'}">${categoryLabel}</span>
+                            </div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            },
+
+            showTempToast: (mainMessage, subMessage, type) => {
+                const toast = document.getElementById('uploadToast');
+                const toastTitle = document.getElementById('toastTitle');
+                const toastSpeed = document.getElementById('toastSpeed');
+                const icon = toast.querySelector('i');
+                
+                if (!toast) return;
+                
+                toast.classList.remove('hidden');
+                toastTitle.textContent = mainMessage;
+                toastSpeed.textContent = subMessage;
+                
+                if(type === 'success') icon.className = 'fas fa-check-circle text-green-500 mr-2 text-base';
+                else if(type === 'error') icon.className = 'fas fa-exclamation-circle text-red-500 mr-2 text-base';
+                else icon.className = 'fas fa-info-circle text-blue-500 mr-2 text-base';
+
+                setTimeout(() => { toast.classList.add('hidden'); }, 3000);
+            },
+            
+            showHome: () => {
+                const searchInput = document.getElementById('searchInput');
+                if(searchInput) searchInput.value = ''; 
+                App.renderVideos(); 
+            }
+        };
+
+        window.app = App;
+        App.init();
+    </script>
+</body>
+</html>
